@@ -136,9 +136,16 @@ func handleGroups() error {
 		}
 
 		log.Infof("Setting %s as primary and %s as secondary in @sreoncall group", primaryNow, secondaryNow)
-		err = setMMGroupUsers(os.Getenv("MATTERMOST_SREONCALL_GROUPID"), []string{primaryNowUserID, secondaryNowUserID}, mmClient)
-		if err != nil {
-			return err
+		if primaryNow == secondaryNow {
+			err = setMMGroupUsers(os.Getenv("MATTERMOST_SREONCALL_GROUPID"), []string{primaryNowUserID}, mmClient)
+			if err != nil {
+				return err
+			}
+		} else {
+			err = setMMGroupUsers(os.Getenv("MATTERMOST_SREONCALL_GROUPID"), []string{primaryNowUserID, secondaryNowUserID}, mmClient)
+			if err != nil {
+				return err
+			}
 		}
 
 		err = sendWhoIsOnCallNotification(primaryNow, secondaryNow)
