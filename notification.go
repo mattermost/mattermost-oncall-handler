@@ -52,17 +52,21 @@ func sendWhoIsOnCallNotification(primary, secondary string) error {
 	return nil
 }
 
-func sendWhoIsSRESupportNotification(user1, user2 string) error {
+func sendWhoIsSRESupportNotification(users []string) error {
+	fields := []*model.SlackAttachmentField{
+		{Title: "Who is on SRE Support?", Short: false},
+		{Value: "_Who you gonna ask for help?_ Use: @sresupport", Short: false},
+	}
+
+	for _, user := range users {
+		fields = append(fields, &model.SlackAttachmentField{Title: "Support A", Value: fmt.Sprintf("@%s", user), Short: true})
+	}
+
 	attachment := &model.SlackAttachment{
 		Title:     "SRE Support",
 		TitleLink: "https://mattermost.app.opsgenie.com/alert",
 		Color:     "#0000ff",
-		Fields: []*model.SlackAttachmentField{
-			{Title: "Who is on SRE Support?", Short: false},
-			{Title: "Support A", Value: fmt.Sprintf("@%s", user1), Short: true},
-			{Title: "Support B", Value: fmt.Sprintf("@%s", user2), Short: true},
-			{Value: "_Who you gonna ask for help?_ Use: @sresupport", Short: false},
-		},
+		Fields:    fields,
 	}
 
 	payload := model.CommandResponse{
