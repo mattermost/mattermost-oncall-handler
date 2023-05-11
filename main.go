@@ -160,24 +160,29 @@ func handleGroups() error {
 	sreSupportGroupMembers, _ := getMMGroupUsers(os.Getenv("MATTERMOST_SRESUPPORT_GROUPID"), mmClient)
 	log.Infof("Currently SRE Support in Mattermost Group is:")
 	var supportMemberIDs []string
-	for _, member := range sreSupportGroupMembers {
-		log.Infof("%s.%s", strings.ToLower(member.FirstName), strings.ToLower(member.LastName))
-		supportMemberIDs = append(supportMemberIDs, member.Id)
+	log.Info(sreSupportGroupMembers)
+	if len(sreSupportGroupMembers) > 0 {
+		for _, member := range sreSupportGroupMembers {
+			log.Infof("%s.%s", strings.ToLower(member.FirstName), strings.ToLower(member.LastName))
+			supportMemberIDs = append(supportMemberIDs, member.Id)
+		}
 	}
 
 	if !checkEquality(supportMemberIDs, supportUserIDs) {
-		log.Info("Cleaning existing @sresupport group members")
-		err = removeMMGroupUsers(os.Getenv("MATTERMOST_SRESUPPORT_GROUPID"), supportMemberIDs, mmClient)
-		if err != nil {
-			return err
+		if len(sreSupportGroupMembers) > 0 {
+			log.Info("Cleaning existing @sresupport group members")
+			err = removeMMGroupUsers(os.Getenv("MATTERMOST_SRESUPPORT_GROUPID"), supportMemberIDs, mmClient)
+			if err != nil {
+				return err
+			}
 		}
-		log.Infof("Setting %s and %s as sresupport in @sresupport group", supportUsers[0], supportUsers[1])
+		log.Infof("Setting %s as sresupport in @sresupport group", strings.Join(supportUsers, ","))
 		err = setMMGroupUsers(os.Getenv("MATTERMOST_SRESUPPORT_GROUPID"), supportUserIDs, mmClient)
 		if err != nil {
 			return err
 		}
 
-		err = sendWhoIsSRESupportNotification(supportUsers[0], supportUsers[1])
+		err = sendWhoIsSRESupportNotification(supportUsers)
 		if err != nil {
 			return err
 		}
@@ -200,10 +205,12 @@ func getSupportFromApprovedList(members []string) []string {
 			}
 		}
 		if !approved {
-			supportOverrideList := strings.Split(os.Getenv("SUPPORT_OVERRIDE_LIST"), ",")
-			rand.Seed(time.Now().Unix())
-			n := rand.Int() % len(supportOverrideList)
-			supportMembers = append(supportMembers, supportOverrideList[n])
+			if os.Getenv("SUPPORT_OVERRIDE_LIST") != "" {
+				supportOverrideList := strings.Split(os.Getenv("SUPPORT_OVERRIDE_LIST"), ",")
+				rand.Seed(time.Now().Unix())
+				n := rand.Int() % len(supportOverrideList)
+				supportMembers = append(supportMembers, supportOverrideList[n])
+			}
 		}
 	}
 	return supportMembers
