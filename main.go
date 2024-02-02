@@ -86,7 +86,7 @@ func whoIsOnCall(userNameType string) (string, string, string, string, error) {
 }
 
 func handleGroups() error {
-	mmClient := mmodel.NewAPIv4Client("https://community.mattermost.com")
+	mmClient := mmodel.NewAPIv4Client(os.Getenv("MATTERMOST_URL"))
 	mmClient.SetOAuthToken(os.Getenv("MATTERMOST_BOT_TOKEN"))
 
 	primaryNow, secondaryNow, primaryLater, secondaryLater, err := whoIsOnCall("mattermost_username")
