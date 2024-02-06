@@ -9,8 +9,8 @@ DOCKER_BASE_IMAGE = alpine:3.19
 ################################################################################
 
 GO ?= $(shell command -v go 2> /dev/null)
-MATTERMOST_ONCALL_HANDLER_IMAGE_REPO ?=stylianosrigas/mattermost-oncall-handler
-MATTERMOST_ONCALL_HANDLER_IMAGE ?= stylianosrigas/mattermost-oncall-handler:test
+MATTERMOST_ONCALL_HANDLER_IMAGE_REPO ?=mattermost/mattermost-oncall-handler
+MATTERMOST_ONCALL_HANDLER_IMAGE ?= mattermost/mattermost-oncall-handler:test
 MACHINE = $(shell uname -m)
 GOFLAGS ?= $(GOFLAGS:)
 BUILD_TIME := $(shell date -u +%Y%m%d.%H%M%S)

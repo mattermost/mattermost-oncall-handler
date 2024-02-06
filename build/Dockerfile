@@ -12,7 +12,7 @@ RUN make build ARCH=${ARCH}
 
 
 # Final Image
-FROM --platform=${TARGETPLATFORM} ${DOCKER_BASE_IM0AGE}
+FROM --platform=${TARGETPLATFORM} ${DOCKER_BASE_IMAGE}
 LABEL name="Mattermost Oncall Handler" \
   maintainer="cloud-team@mattermost.com" \
   vendor="Mattermost" \
