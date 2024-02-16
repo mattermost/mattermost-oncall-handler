@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PagerDuty/go-pagerduty"
 	mmodel "github.com/mattermost/mattermost-server/v6/model"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/client"
-	"github.com/opsgenie/opsgenie-go-sdk-v2/schedule"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/user"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -32,7 +32,7 @@ func main() {
 
 func checkEnvVariables() error {
 	var envVariables = []string{
-		"OPSGENIE_APIKEY",
+		"PAGERDUTY_APIKEY",
 		"MATTERMOST_SREONCALL_NOTIFICATION_HOOK",
 		"MATTERMOST_SRESUPPORT_NOTIFICATION_HOOK",
 		"MATTERMOST_BOT_TOKEN",
@@ -42,8 +42,9 @@ func checkEnvVariables() error {
 		"ONCALL_HOUR_SHIFTS",
 		"SUPPORT_APPROVED_LIST",
 		"SUPPORT_OVERRIDE_LIST",
-		"PRIMARY_ONCALL_GROUP_NAME",
-		"SECONDARY_ONCALL_GROUP_NAME",
+		"PAGERDUTY_TEAM_ID",
+		"PRIMARY_SCHEDULE_ID",
+		"SECONDARY_SCHEDULE_ID",
 	}
 
 	for _, envVar := range envVariables {
@@ -56,33 +57,101 @@ func checkEnvVariables() error {
 
 func whoIsOnCall(userNameType string) (string, string, string, string, error) {
 
-	primaryNow, err := getOncall(os.Getenv("PRIMARY_ONCALL_GROUP_NAME"), userNameType, time.Now().UTC())
-	if err != nil || primaryNow == "" {
-		return "", "", "", "", errors.Wrap(err, "not able to get who is the primary now")
-	}
-
-	secondaryNow, err := getOncall(os.Getenv("SECONDARY_ONCALL_GROUP_NAME"), userNameType, time.Now().UTC())
-	if err != nil || secondaryNow == "" {
-		return "", "", "", "", errors.Wrap(err, "not able to get who is the secondary now")
-	}
+	client := pagerduty.NewClient(os.Getenv("PAGERDUTY_APIKEY"))
 
 	intVar, err := strconv.Atoi(os.Getenv("ONCALL_HOUR_SHIFTS"))
 	if err != nil {
 		return "", "", "", "", errors.Wrap(err, "not able to get integer from oncall hour shifts")
 	}
 
-	primaryLater, err := getOncall(os.Getenv("PRIMARY_ONCALL_GROUP_NAME"), userNameType, time.Now().UTC().Add(time.Hour*time.Duration(intVar)))
-	if err != nil || primaryLater == "" {
-		return "", "", "", "", errors.Wrap(err, "not able to get who is the primary later")
+	now := time.Now().UTC()
+	future := time.Now().UTC().Add(time.Hour * time.Duration(intVar))
+
+	// Set up options to get who is on call now for a specific team
+	optsNowPrimary := pagerduty.ListOnCallOptions{
+		Since:       now.Format(time.RFC3339),
+		Until:       now.Format(time.RFC3339),
+		ScheduleIDs: []string{os.Getenv("PRIMARY_SCHEDULE_ID")},
 	}
 
-	secondaryLater, err := getOncall(os.Getenv("SECONDARY_ONCALL_GROUP_NAME"), userNameType, time.Now().UTC().Add(time.Hour*time.Duration(intVar)))
-	if err != nil || secondaryLater == "" {
-		log.Fatal("not able to get who is the secondary later")
-		return "", "", "", "", errors.Wrap(err, "not able to get who is the secondary later")
+	// Set up options to get who will be on call later for the specific team
+	optsFuturePrimary := pagerduty.ListOnCallOptions{
+		Since:       future.Format(time.RFC3339),
+		Until:       future.Format(time.RFC3339),
+		ScheduleIDs: []string{os.Getenv("PRIMARY_SCHEDULE_ID")},
 	}
 
-	return primaryNow, secondaryNow, primaryLater, secondaryLater, nil
+	// Set up options to get who is on call now for a specific team
+	optsNowSecondary := pagerduty.ListOnCallOptions{
+		Since:       now.Format(time.RFC3339),
+		Until:       now.Format(time.RFC3339),
+		ScheduleIDs: []string{os.Getenv("SECONDARY_SCHEDULE_ID")},
+	}
+
+	// Set up options to get who will be on call later for the specific team
+	optsFutureSecondary := pagerduty.ListOnCallOptions{
+		Since:       future.Format(time.RFC3339),
+		Until:       future.Format(time.RFC3339),
+		ScheduleIDs: []string{os.Getenv("SECONDARY_SCHEDULE_ID")},
+	}
+
+	onCallsNowPrimary, err := client.ListOnCallsWithContext(context.TODO(), optsNowPrimary)
+	if err != nil {
+		log.WithError(err).Error("Error fetching current on-call information for the primary team")
+		return "", "", "", "", err
+	}
+
+	userNowPrimary, err := client.GetUserWithContext(context.TODO(), onCallsNowPrimary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
+	if err != nil {
+		log.WithError(err).Error("Error fetching user details for primary oncall now")
+		return "", "", "", "", err
+	}
+	log.Infof("User Now Primary: %s (%s)\n", userNowPrimary.Name, userNowPrimary.Email)
+	usernameNowPrimary := strings.ReplaceAll(strings.ToLower(userNowPrimary.Name), " ", ".")
+
+	onCallsNowSecondary, err := client.ListOnCallsWithContext(context.TODO(), optsNowSecondary)
+	if err != nil {
+		log.WithError(err).Error("Error fetching current on-call information for the secondary team")
+		return "", "", "", "", err
+	}
+
+	userNowSecondary, err := client.GetUserWithContext(context.TODO(), onCallsNowSecondary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
+	if err != nil {
+		log.WithError(err).Error("Error fetching user details for secondary oncall now")
+		return "", "", "", "", err
+	}
+	log.Infof("User Now Secondary: %s (%s)\n", userNowSecondary.Name, userNowSecondary.Email)
+	usernameNowSecondary := strings.ReplaceAll(strings.ToLower(userNowSecondary.Name), " ", ".")
+
+	onCallsFuturePrimary, err := client.ListOnCallsWithContext(context.TODO(), optsFuturePrimary)
+	if err != nil {
+		log.WithError(err).Error("Error fetching future on-call information for the primary team")
+		return "", "", "", "", err
+	}
+
+	userFuturePrimary, err := client.GetUserWithContext(context.TODO(), onCallsFuturePrimary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
+	if err != nil {
+		log.WithError(err).Error("Error fetching user details for primary oncall in the future")
+		return "", "", "", "", err
+	}
+	log.Infof("User Future Primary: %s (%s)\n", userFuturePrimary.Name, userFuturePrimary.Email)
+	usernameFuturePrimary := strings.ReplaceAll(strings.ToLower(userFuturePrimary.Name), " ", ".")
+
+	onCallsFutureSecondary, err := client.ListOnCallsWithContext(context.TODO(), optsFutureSecondary)
+	if err != nil {
+		log.WithError(err).Error("Error fetching future on-call information for the secondary team")
+		return "", "", "", "", err
+	}
+
+	userFutureSecondary, err := client.GetUserWithContext(context.TODO(), onCallsFutureSecondary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
+	if err != nil {
+		log.WithError(err).Error("Error fetching user details for secondary oncall in the future")
+		return "", "", "", "", err
+	}
+	log.Infof("User Future Secondary: %s (%s)\n", userFutureSecondary.Name, userFutureSecondary.Email)
+	usernameFutureSecondary := strings.ReplaceAll(strings.ToLower(userFutureSecondary.Name), " ", ".")
+
+	return usernameNowPrimary, usernameNowSecondary, usernameFuturePrimary, usernameFutureSecondary, nil
 }
 
 func handleGroups() error {
@@ -160,7 +229,6 @@ func handleGroups() error {
 	sreSupportGroupMembers, _ := getMMGroupUsers(os.Getenv("MATTERMOST_SRESUPPORT_GROUPID"), mmClient)
 	log.Infof("Currently SRE Support in Mattermost Group is:")
 	var supportMemberIDs []string
-	log.Info(sreSupportGroupMembers)
 	if len(sreSupportGroupMembers) > 0 {
 		for _, member := range sreSupportGroupMembers {
 			log.Infof("%s.%s", strings.ToLower(member.FirstName), strings.ToLower(member.LastName))
@@ -275,41 +343,6 @@ func getUserInfo(opsGenieUser, userNameType string) string {
 	}
 
 	return userResult.Details[userNameType][0]
-}
-
-func getOncall(scheduleName, userNameType string, date time.Time) (string, error) {
-	client, err := schedule.NewClient(&client.Config{
-		ApiKey:   os.Getenv("OPSGENIE_APIKEY"),
-		LogLevel: log.DebugLevel,
-	})
-	if err != nil {
-		log.Fatal("not able to create a new opsgenie client")
-		return "", err
-	}
-
-	flat := true
-	onCallReq := &schedule.GetOnCallsRequest{
-		Flat:                   &flat,
-		Date:                   &date,
-		ScheduleIdentifierType: schedule.Name,
-		ScheduleIdentifier:     scheduleName,
-	}
-	onCall, err := client.GetOnCalls(context.TODO(), onCallReq)
-	if err != nil {
-		log.Fatal("not able to get who is on call 2")
-		return "", err
-	}
-
-	if (len(onCall.OnCallRecipients)) <= 0 {
-		return "", nil
-	}
-
-	primary := getUserInfo(onCall.OnCallRecipients[0], userNameType)
-	if primary == "" {
-		return onCall.OnCallRecipients[0], nil
-	}
-
-	return primary, nil
 }
 
 func checkEquality(slice1, slice2 []string) bool {
