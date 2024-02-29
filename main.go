@@ -42,7 +42,6 @@ func checkEnvVariables() error {
 		"ONCALL_HOUR_SHIFTS",
 		"SUPPORT_APPROVED_LIST",
 		"SUPPORT_OVERRIDE_LIST",
-		"PAGERDUTY_TEAM_ID",
 		"PRIMARY_SCHEDULE_ID",
 		"SECONDARY_SCHEDULE_ID",
 	}
@@ -264,21 +263,22 @@ func handleGroups() error {
 func getSupportFromApprovedList(members []string) []string {
 	var supportMembers []string
 	approvedList := strings.Split(os.Getenv("SUPPORT_APPROVED_LIST"), ",")
+	var approved bool
 	for _, member := range members {
-		approved := false
 		for _, approvedMember := range approvedList {
 			if member == approvedMember {
 				supportMembers = append(supportMembers, member)
 				approved = true
 			}
 		}
-		if !approved {
-			if os.Getenv("SUPPORT_OVERRIDE_LIST") != "" {
-				supportOverrideList := strings.Split(os.Getenv("SUPPORT_OVERRIDE_LIST"), ",")
-				rand.Seed(time.Now().Unix())
-				n := rand.Int() % len(supportOverrideList)
-				supportMembers = append(supportMembers, supportOverrideList[n])
-			}
+
+	}
+	if !approved {
+		if os.Getenv("SUPPORT_OVERRIDE_LIST") != "" {
+			supportOverrideList := strings.Split(os.Getenv("SUPPORT_OVERRIDE_LIST"), ",")
+			rand.Seed(time.Now().Unix())
+			n := rand.Int() % len(supportOverrideList)
+			supportMembers = append(supportMembers, supportOverrideList[n])
 		}
 	}
 	return supportMembers
