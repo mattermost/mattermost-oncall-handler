@@ -9,6 +9,7 @@ import (
 
 	model "github.com/mattermost/mattermost-server/v6/model"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 func send(webhookURL string, payload model.CommandResponse) error {
@@ -29,7 +30,11 @@ func send(webhookURL string, payload model.CommandResponse) error {
 	if err != nil {
 		return errors.Wrap(err, "failed tο send HTTP request")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.WithError(closeErr).Warn("Failed to close response body")
+		}
+	}()
 	return nil
 }
 

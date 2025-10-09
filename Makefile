@@ -82,10 +82,9 @@ check-style: govet lint goformat goimports
 
 ## Runs lint against all packages.
 .PHONY: lint
-lint:
+lint: golangci-lint
 	@echo Running lint
-	env GO111MODULE=off $(GO) get -u golang.org/x/lint/golint
-	golint -set_exit_status ./...
+	$(TOOLS_BIN_DIR)/golangci-lint run
 	@echo lint success
 
 ## Runs govet against all packages.
@@ -185,3 +184,9 @@ check-modules: $(OUTDATED_GEN) ## Check outdated modules
 
 $(OUTDATED_GEN): ## Build go-mod-outdated.
 	GOBIN=$(TOOLS_BIN_DIR) $(GO_INSTALL) github.com/psampaz/go-mod-outdated $(OUTDATED_BIN) $(OUTDATED_VER)
+
+golangci-lint: ## Ensure golangci-lint is installed.
+	@if [ ! -f $(TOOLS_BIN_DIR)/golangci-lint ]; then \
+		echo "Installing golangci-lint..."; \
+		$(ENSURE_GOLANGCI_LINT); \
+	fi
