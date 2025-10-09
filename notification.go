@@ -12,9 +12,15 @@ import (
 )
 
 func send(webhookURL string, payload model.CommandResponse) error {
-	marshalContent, _ := json.Marshal(payload)
+	marshalContent, err := json.Marshal(payload)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal payload")
+	}
 	var jsonStr = []byte(marshalContent)
 	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		return errors.Wrap(err, "failed to create HTTP request")
+	}
 	req.Header.Set("X-Custom-Header", "aws-sns")
 	req.Header.Set("Content-Type", "application/json")
 
@@ -28,16 +34,23 @@ func send(webhookURL string, payload model.CommandResponse) error {
 }
 
 func sendWhoIsOnCallNotification(primary, secondary string) error {
+	fields := []*model.SlackAttachmentField{
+		{Title: "Who is onCall?", Short: false},
+		{Title: "Primary", Value: fmt.Sprintf("@%s", primary), Short: true},
+	}
+
+	// Only add secondary field if secondary is not empty
+	if secondary != "" {
+		fields = append(fields, &model.SlackAttachmentField{Title: "Secondary", Value: fmt.Sprintf("@%s", secondary), Short: true})
+	}
+
+	fields = append(fields, &model.SlackAttachmentField{Value: "_Who you gonna call?_ Use: @sreoncall", Short: false})
+
 	attachment := &model.SlackAttachment{
 		Title:     "SRE Oncall",
 		TitleLink: "https://mattermost.app.opsgenie.com/alert",
 		Color:     "#0000ff",
-		Fields: []*model.SlackAttachmentField{
-			{Title: "Who is onCall?", Short: false},
-			{Title: "Primary", Value: fmt.Sprintf("@%s", primary), Short: true},
-			{Title: "Secondary", Value: fmt.Sprintf("@%s", secondary), Short: true},
-			{Value: "_Who you gonna call?_ Use: @sreoncall", Short: false},
-		},
+		Fields:    fields,
 	}
 
 	payload := model.CommandResponse{
