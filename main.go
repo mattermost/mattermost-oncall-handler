@@ -10,8 +10,6 @@ import (
 
 	"github.com/PagerDuty/go-pagerduty"
 	mmodel "github.com/mattermost/mattermost-server/v6/model"
-	"github.com/opsgenie/opsgenie-go-sdk-v2/client"
-	"github.com/opsgenie/opsgenie-go-sdk-v2/user"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -346,33 +344,6 @@ func getMMGroupUsers(groupID string, mmClient *mmodel.Client4) ([]*mmodel.User, 
 		return nil, errors.Wrap(err, "unable to get Mattermost users")
 	}
 	return users, nil
-}
-
-func getUserInfo(opsGenieUser, userNameType string) string {
-	client, err := user.NewClient(&client.Config{
-		ApiKey: os.Getenv("OPSGENIE_APIKEY"),
-	})
-	if err != nil {
-		log.Fatal("not able to create a new opsgenie client")
-		return ""
-	}
-
-	userReq := &user.GetRequest{
-		Identifier: opsGenieUser,
-	}
-
-	userResult, err := client.Get(context.Background(), userReq)
-	if err != nil {
-		log.Fatal("not able to get the user")
-		return ""
-	}
-
-	log.Println(userResult.FullName, userResult.Username)
-	if len(userResult.Details[userNameType]) == 0 {
-		return userResult.FullName
-	}
-
-	return userResult.Details[userNameType][0]
 }
 
 func checkEquality(slice1, slice2 []string) bool {
