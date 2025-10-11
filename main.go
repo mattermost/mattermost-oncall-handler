@@ -10,8 +10,6 @@ import (
 
 	"github.com/PagerDuty/go-pagerduty"
 	mmodel "github.com/mattermost/mattermost-server/v6/model"
-	"github.com/opsgenie/opsgenie-go-sdk-v2/client"
-	"github.com/opsgenie/opsgenie-go-sdk-v2/user"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -100,13 +98,19 @@ func whoIsOnCall(userNameType string) (string, string, string, string, error) {
 		return "", "", "", "", err
 	}
 
-	userNowPrimary, err := client.GetUserWithContext(context.TODO(), onCallsNowPrimary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
-	if err != nil {
-		log.WithError(err).Error("Error fetching user details for primary oncall now")
-		return "", "", "", "", err
+	var usernameNowPrimary string
+	if len(onCallsNowPrimary.OnCalls) > 0 {
+		userNowPrimary, err := client.GetUserWithContext(context.TODO(), onCallsNowPrimary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
+		if err != nil {
+			log.WithError(err).Error("Error fetching user details for primary oncall now")
+			return "", "", "", "", err
+		}
+		log.Infof("User Now Primary: %s (%s)\n", userNowPrimary.Name, userNowPrimary.Email)
+		usernameNowPrimary = strings.ReplaceAll(strings.ToLower(userNowPrimary.Name), " ", ".")
+	} else {
+		log.Info("No primary on-call user found")
+		usernameNowPrimary = ""
 	}
-	log.Infof("User Now Primary: %s (%s)\n", userNowPrimary.Name, userNowPrimary.Email)
-	usernameNowPrimary := strings.ReplaceAll(strings.ToLower(userNowPrimary.Name), " ", ".")
 
 	onCallsNowSecondary, err := client.ListOnCallsWithContext(context.TODO(), optsNowSecondary)
 	if err != nil {
@@ -114,13 +118,19 @@ func whoIsOnCall(userNameType string) (string, string, string, string, error) {
 		return "", "", "", "", err
 	}
 
-	userNowSecondary, err := client.GetUserWithContext(context.TODO(), onCallsNowSecondary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
-	if err != nil {
-		log.WithError(err).Error("Error fetching user details for secondary oncall now")
-		return "", "", "", "", err
+	var usernameNowSecondary string
+	if len(onCallsNowSecondary.OnCalls) > 0 {
+		userNowSecondary, err := client.GetUserWithContext(context.TODO(), onCallsNowSecondary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
+		if err != nil {
+			log.WithError(err).Error("Error fetching user details for secondary oncall now")
+			return "", "", "", "", err
+		}
+		log.Infof("User Now Secondary: %s (%s)\n", userNowSecondary.Name, userNowSecondary.Email)
+		usernameNowSecondary = strings.ReplaceAll(strings.ToLower(userNowSecondary.Name), " ", ".")
+	} else {
+		log.Info("No secondary on-call user found")
+		usernameNowSecondary = ""
 	}
-	log.Infof("User Now Secondary: %s (%s)\n", userNowSecondary.Name, userNowSecondary.Email)
-	usernameNowSecondary := strings.ReplaceAll(strings.ToLower(userNowSecondary.Name), " ", ".")
 
 	onCallsFuturePrimary, err := client.ListOnCallsWithContext(context.TODO(), optsFuturePrimary)
 	if err != nil {
@@ -128,13 +138,19 @@ func whoIsOnCall(userNameType string) (string, string, string, string, error) {
 		return "", "", "", "", err
 	}
 
-	userFuturePrimary, err := client.GetUserWithContext(context.TODO(), onCallsFuturePrimary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
-	if err != nil {
-		log.WithError(err).Error("Error fetching user details for primary oncall in the future")
-		return "", "", "", "", err
+	var usernameFuturePrimary string
+	if len(onCallsFuturePrimary.OnCalls) > 0 {
+		userFuturePrimary, err := client.GetUserWithContext(context.TODO(), onCallsFuturePrimary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
+		if err != nil {
+			log.WithError(err).Error("Error fetching user details for primary oncall in the future")
+			return "", "", "", "", err
+		}
+		log.Infof("User Future Primary: %s (%s)\n", userFuturePrimary.Name, userFuturePrimary.Email)
+		usernameFuturePrimary = strings.ReplaceAll(strings.ToLower(userFuturePrimary.Name), " ", ".")
+	} else {
+		log.Info("No primary on-call user found for future")
+		usernameFuturePrimary = ""
 	}
-	log.Infof("User Future Primary: %s (%s)\n", userFuturePrimary.Name, userFuturePrimary.Email)
-	usernameFuturePrimary := strings.ReplaceAll(strings.ToLower(userFuturePrimary.Name), " ", ".")
 
 	onCallsFutureSecondary, err := client.ListOnCallsWithContext(context.TODO(), optsFutureSecondary)
 	if err != nil {
@@ -142,13 +158,19 @@ func whoIsOnCall(userNameType string) (string, string, string, string, error) {
 		return "", "", "", "", err
 	}
 
-	userFutureSecondary, err := client.GetUserWithContext(context.TODO(), onCallsFutureSecondary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
-	if err != nil {
-		log.WithError(err).Error("Error fetching user details for secondary oncall in the future")
-		return "", "", "", "", err
+	var usernameFutureSecondary string
+	if len(onCallsFutureSecondary.OnCalls) > 0 {
+		userFutureSecondary, err := client.GetUserWithContext(context.TODO(), onCallsFutureSecondary.OnCalls[0].User.ID, pagerduty.GetUserOptions{})
+		if err != nil {
+			log.WithError(err).Error("Error fetching user details for secondary oncall in the future")
+			return "", "", "", "", err
+		}
+		log.Infof("User Future Secondary: %s (%s)\n", userFutureSecondary.Name, userFutureSecondary.Email)
+		usernameFutureSecondary = strings.ReplaceAll(strings.ToLower(userFutureSecondary.Name), " ", ".")
+	} else {
+		log.Info("No secondary on-call user found for future")
+		usernameFutureSecondary = ""
 	}
-	log.Infof("User Future Secondary: %s (%s)\n", userFutureSecondary.Name, userFutureSecondary.Email)
-	usernameFutureSecondary := strings.ReplaceAll(strings.ToLower(userFutureSecondary.Name), " ", ".")
 
 	return usernameNowPrimary, usernameNowSecondary, usernameFuturePrimary, usernameFutureSecondary, nil
 }
@@ -172,9 +194,12 @@ func handleGroups() error {
 		return err
 	}
 
-	secondaryNowUserID, err := getMMUserID(secondaryNow, mmClient)
-	if err != nil {
-		return err
+	var secondaryNowUserID string
+	if secondaryNow != "" {
+		secondaryNowUserID, err = getMMUserID(secondaryNow, mmClient)
+		if err != nil {
+			return err
+		}
 	}
 
 	supportUsers := getSupportFromApprovedList([]string{secondaryNow, secondaryLater})
@@ -196,7 +221,14 @@ func handleGroups() error {
 		onCallMemberIDs = append(onCallMemberIDs, member.Id)
 	}
 
-	if !checkEquality(onCallMemberIDs, []string{primaryNowUserID, secondaryNowUserID}) {
+	// Build the expected on-call members list
+	var expectedOnCallMembers []string
+	expectedOnCallMembers = append(expectedOnCallMembers, primaryNowUserID)
+	if secondaryNowUserID != "" {
+		expectedOnCallMembers = append(expectedOnCallMembers, secondaryNowUserID)
+	}
+
+	if !checkEquality(onCallMemberIDs, expectedOnCallMembers) {
 		log.Info("Cleaning existing @sreoncall group members")
 		err = removeMMGroupUsers(os.Getenv("MATTERMOST_SREONCALL_GROUPID"), onCallMemberIDs, mmClient)
 		if err != nil {
@@ -204,16 +236,9 @@ func handleGroups() error {
 		}
 
 		log.Infof("Setting %s as primary and %s as secondary in @sreoncall group", primaryNow, secondaryNow)
-		if primaryNow == secondaryNow {
-			err = setMMGroupUsers(os.Getenv("MATTERMOST_SREONCALL_GROUPID"), []string{primaryNowUserID}, mmClient)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = setMMGroupUsers(os.Getenv("MATTERMOST_SREONCALL_GROUPID"), []string{primaryNowUserID, secondaryNowUserID}, mmClient)
-			if err != nil {
-				return err
-			}
+		err = setMMGroupUsers(os.Getenv("MATTERMOST_SREONCALL_GROUPID"), expectedOnCallMembers, mmClient)
+		if err != nil {
+			return err
 		}
 
 		err = sendWhoIsOnCallNotification(primaryNow, secondaryNow)
@@ -265,13 +290,16 @@ func getSupportFromApprovedList(members []string) []string {
 	approvedList := strings.Split(os.Getenv("SUPPORT_APPROVED_LIST"), ",")
 	var approved bool
 	for _, member := range members {
+		// Skip empty members
+		if member == "" {
+			continue
+		}
 		for _, approvedMember := range approvedList {
 			if member == approvedMember {
 				supportMembers = append(supportMembers, member)
 				approved = true
 			}
 		}
-
 	}
 	if !approved {
 		if os.Getenv("SUPPORT_OVERRIDE_LIST") != "" {
@@ -316,33 +344,6 @@ func getMMGroupUsers(groupID string, mmClient *mmodel.Client4) ([]*mmodel.User, 
 		return nil, errors.Wrap(err, "unable to get Mattermost users")
 	}
 	return users, nil
-}
-
-func getUserInfo(opsGenieUser, userNameType string) string {
-	client, err := user.NewClient(&client.Config{
-		ApiKey: os.Getenv("OPSGENIE_APIKEY"),
-	})
-	if err != nil {
-		log.Fatal("not able to create a new opsgenie client")
-		return ""
-	}
-
-	userReq := &user.GetRequest{
-		Identifier: opsGenieUser,
-	}
-
-	userResult, err := client.Get(context.Background(), userReq)
-	if err != nil {
-		log.Fatal("not able to get the user")
-		return ""
-	}
-
-	log.Println(userResult.FullName, userResult.Username)
-	if len(userResult.Details[userNameType]) == 0 {
-		return userResult.FullName
-	}
-
-	return userResult.Details[userNameType][0]
 }
 
 func checkEquality(slice1, slice2 []string) bool {
